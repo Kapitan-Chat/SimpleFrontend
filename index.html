@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script
+            src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
+            integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+            crossorigin="anonymous"
+        ></script>
+        <title>KapitanChat Minimal Frontend</title>
+    </head>
+    <body>
+        <div class="info" id="info">
+            <span>User id: <span id="user_id">Unknown</span></span>
+            |
+            <span id="status_element">Not connected yet</span>
+        </div>
+        <form id="login-form">
+            <input
+                type="text"
+                name="username"
+                id="username"
+                placeholder="Username"
+            />
+            <input
+                type="password"
+                name="password"
+                id="password"
+                placeholder="Password"
+            />
+            <button type="submit" id="loginb">Login</button>
+        </form>
+        <div class="flex">
+            <div class="left ib">
+                Chats:
+                <div class="chat-list" id="chat_list"></div>
+            </div>
+            <div class="right ib">
+                <div class="msg-list" id="msg_list"></div>
+                <div class="message-send-row">
+                    <form id="message-send-form">
+                        <label for="msg">You:</label>
+                        <input type="text" , name="msg" , id="msg" />
+                        <button type="submit" id="sendb">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="notifications" id="notifications"></div>
+
+        <script src="script.js"></script>
+        <style>
+            .message {
+                background-color: bisque;
+            }
+            .ib {
+                display: inline-block;
+            }
+            .left {
+                width: 20%;
+                height: 80vh;
+                background-color: beige;
+                margin-right: 10px;
+                padding: 5px;
+            }
+            .right {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                height: 80vh;
+                background-color: #fafad8;
+                width: 50%;
+                padding: 5px;
+            }
+            .msg-list {
+                height: 100%;
+                width: 100%;
+                padding-bottom: 5px;
+                overflow-y: auto;
+            }
+            .flex {
+                display: flex;
+            }
+            .chat-element {
+                background-color: #fff;
+                padding: 0px, 5px, 0px, 5px;
+                margin-bottom: 2px;
+            }
+
+            .notifications {
+                width: 200px;
+                position: absolute;
+                top: 0;
+                right: 0;
+            }
+            .notification {
+                background-color: azure;
+            }
+            .notification-title {
+                padding: 0;
+                margin: 0;
+            }
+        </style>
+    </body>
+</html>
