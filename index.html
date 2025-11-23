@@ -16,6 +16,8 @@
             |
             <span id="status_element">Not connected yet</span>
         </div>
+        <label for="api_url">API URL:</label>
+        <input type="text" name="api_url" id="api_url" value="localhost:8000" />
         <form id="login-form">
             <input
                 type="text"
@@ -30,10 +32,19 @@
                 placeholder="Password"
             />
             <button type="submit" id="loginb">Login</button>
+            <button type="button" id="disconnect_btn">Disconnect</button>
         </form>
         <div class="flex">
             <div class="left ib">
-                Chats:
+                <div>
+                    <label for="search"></label>
+                    <input
+                        type="text"
+                        name="search"
+                        id="search"
+                        placeholder="Search"
+                    />
+                </div>
                 <div class="chat-list" id="chat_list"></div>
             </div>
             <div class="right ib">
