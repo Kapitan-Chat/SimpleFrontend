@@ -3,9 +3,16 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <script
+        <!-- Hash library -->
+        <script src="https://cdn.jsdelivr.net/npm/hash-wasm@4/dist/sha256.umd.min.js"></script>
+        <!-- <script
             src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
             integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+            crossorigin="anonymous"
+        ></script> -->
+        <script
+            src="https://code.jquery.com/jquery-3.7.1.js"
+            integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4="
             crossorigin="anonymous"
         ></script>
         <title>KapitanChat Minimal Frontend</title>
@@ -18,6 +25,13 @@
         </div>
         <label for="api_url">API URL:</label>
         <input type="text" name="api_url" id="api_url" value="localhost:8000" />
+        <label for="storage_api_url">Storage URL:</label>
+        <input
+            type="text"
+            name="storage_api_url"
+            id="storage_api_url"
+            value="localhost:8001"
+        />
         <form id="login-form">
             <input
                 type="text"
@@ -50,9 +64,35 @@
             <div class="right ib">
                 <div class="msg-list" id="msg_list"></div>
                 <div class="message-send-row">
+                    <div
+                        id="selected_files_list"
+                        class="selected-files-list"
+                    ></div>
                     <form id="message-send-form">
-                        <label for="msg">You:</label>
-                        <input type="text" , name="msg" , id="msg" />
+                        <label for="file">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                fill="currentColor"
+                                class="bi bi-paperclip"
+                                viewBox="0 0 16 16"
+                            >
+                                <path
+                                    d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0z"
+                                />
+                            </svg>
+                        </label>
+                        <input
+                            type="file"
+                            name="file"
+                            id="file"
+                            placeholder="N"
+                            multiple
+                            style="opacity: 0; width: 0px"
+                        />
+                        <label for="msg"></label>
+                        <input type="text" name="msg" id="msg" />
                         <button type="submit" id="sendb">Send</button>
                     </form>
                 </div>
@@ -111,6 +151,23 @@
             .notification-title {
                 padding: 0;
                 margin: 0;
+            }
+            .selected-files-list {
+                overflow-x: auto;
+                display: flex;
+                height: 80px;
+            }
+            .selected-file {
+                display: flex;
+                flex-direction: column;
+            }
+            .selected-file-preview {
+                width: 64px;
+                height: auto;
+                max-height: 64px;
+            }
+            .selected-file-text {
+                font-size: smaller;
             }
         </style>
     </body>

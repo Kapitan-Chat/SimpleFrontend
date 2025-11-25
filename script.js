@@ -1,4 +1,6 @@
 BASE_URL = "localhost:8000";
+STORAGE_URL = "localhost:8001";
+STORAGE_HTTP = "http://" + STORAGE_URL + "/api/";
 BASE_HTTP = "http://" + BASE_URL + "/api/";
 BASE_WS = "ws://" + BASE_URL + "/ws/";
 
@@ -11,6 +13,38 @@ USER = null;
 EDITING_MESSAGE = null;
 CHAT_CREATING = null;
 
+const Utils = {
+    hashChunk(fileReader, hasher, chunk) {
+        return new Promise((resolve, reject) => {
+            fileReader.onload = async (e) => {
+                const view = new Uint8Array(e.target.result);
+                hasher.update(view);
+                resolve();
+            };
+
+            fileReader.readAsArrayBuffer(chunk);
+        });
+    },
+    async calculateHash(file) {
+        const chunkSize = 64 * 1024 * 1024;
+        const fileReader = new FileReader();
+        const hasher = await hashwasm.createSHA256();
+
+        const chunkNumber = Math.floor(file.size / chunkSize);
+
+        for (let i = 0; i <= chunkNumber; i++) {
+            const chunk = file.slice(
+                chunkSize * i,
+                Math.min(chunkSize * (i + 1), file.size)
+            );
+            await this.hashChunk(fileReader, hasher, chunk);
+        }
+
+        const hash = hasher.digest();
+        return Promise.resolve(hash);
+    },
+};
+
 const Requests = {
     async tokenizedRequest(endpoint, properties) {
         return await fetch(BASE_HTTP + endpoint, {
@@ -18,6 +52,22 @@ const Requests = {
                 "Content-Type": "application/json",
                 Authorization: "Bearer " + TOKEN,
             },
+            ...properties,
+        });
+    },
+    async storageRequest(
+        endpoint,
+        properties,
+        contentType = "application/json"
+    ) {
+        const headers = {
+            Authorization: "Bearer " + TOKEN,
+        };
+        if (contentType) {
+            headers["Content-Type"] = contentType;
+        }
+        return await fetch(STORAGE_HTTP + endpoint, {
+            headers: headers,
             ...properties,
         });
     },
@@ -110,6 +160,25 @@ const Requests = {
         CHAT_CREATING = null;
         return await res.json();
     },
+    async storeFile(file) {
+        const formData = new FormData();
+        formData.set("file", file);
+        const hash = await Utils.calculateHash(file);
+        formData.set("hash", hash);
+        const res = await this.storageRequest(
+            "file/",
+            { body: formData, method: "POST" },
+            null
+        );
+        if (!res.ok) {
+            console.log(res);
+            return null;
+        }
+        return await res.json();
+    },
+    getFileUrl(id) {
+        return STORAGE_HTTP + "file/?id=" + id;
+    },
 };
 
 const Templates = {
@@ -127,6 +196,28 @@ const Templates = {
                     (user.last_name ? " " + user.last_name : "")
                 }</span>
             </div>`;
+    },
+    attachment(attachment) {
+        const url = Requests.getFileUrl(attachment.storage_id);
+        if (attachment.type.includes("image/")) {
+            return /*html*/ `
+                <img src="${url}" alt="${attachment.name}" width="300" />
+            `;
+        } else {
+            return /*html*/ `
+                <div class="attachment-preview">
+                    <a href="${url}">
+                        <button>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
+                            </svg>
+                        </button>
+                    </a>
+                    <span>${attachment.name}</span>
+                </div>
+            `;
+        }
     },
     message(message) {
         const messageClass =
@@ -152,6 +243,16 @@ const Templates = {
                 ${inner}
                 ${message.is_edited ? "(edited)" : ""}`;
         }
+        if (message.attachments.length > 0) {
+            const attachments = message.attachments
+                .map(this.attachment)
+                .join("");
+            part += /*html*/ `
+                <div class="attachments-block">
+                    ${attachments}
+                </div>
+            `;
+        }
 
         return /*html*/ `
             <div class="${messageClass}" message-id="${message.id}">
@@ -167,6 +268,30 @@ const Templates = {
             content.length > 50 ? "..." : ""
         }</span>
             </div>`;
+    },
+    selectedFiles(fileList = new FileList()) {
+        if (fileList.length == 0) return "";
+        const items = [];
+        for (const file of fileList) {
+            items.push(/*html*/ `
+                <div class="selected-file">
+                    <img 
+                        class="selected-file-preview"
+                        src="${URL.createObjectURL(file)}" 
+                        width="64"
+                        alt="${file.name}" 
+                    />
+                    <span class="selected-file-text">
+                        ${file.name}
+                    </span>
+                </div>
+            `);
+        }
+        let res = "";
+        for (const f of items) {
+            res += f;
+        }
+        return res;
     },
 };
 
@@ -221,6 +346,10 @@ const Render = {
                 ).then(Render.messages);
             });
         }
+    },
+    selectedFiles(fileList = []) {
+        $("#selected_files_list").empty();
+        $("#selected_files_list").html(Templates.selectedFiles(fileList));
     },
 };
 
@@ -332,6 +461,37 @@ const editChatMessage = (msg) => {
     }
 };
 
+const sendMessage = async (text, attachments = new FileList()) => {
+    console.log(attachments);
+    if (attachments.length > 0) {
+        //TODO hash files, upload to storage service, post in api, send ads into send()
+        const temp = [];
+        for (const file of attachments) {
+            const res = await Requests.storeFile(file);
+            if (res) {
+                temp.push({
+                    name: file.name,
+                    storage_id: res.id,
+                    type: file.type,
+                });
+            }
+        }
+        console.log(temp);
+        attachments = temp;
+    } else {
+        attachments = [];
+    }
+    Connection.send({
+        type: "message",
+        data: {
+            user_id: USER_ID,
+            chat_id: CURRENT_CHAT.id,
+            content: text,
+            attachments,
+        },
+    });
+};
+
 const deleteChatMessage = (data) => {
     const id = data.id;
     const chatId = data.chat.id;
@@ -424,38 +584,36 @@ jQuery(($) => {
                 Connection.connect(TOKEN);
             });
     });
-    $("#message-send-form").on("submit", (e) => {
-        e.preventDefault();
-        if (CURRENT_CHAT instanceof NewChat) {
-            const msg = $("#msg").val();
-            Requests.createDirectChat(CURRENT_CHAT.user)
-                .then((res) => res && (CURRENT_CHAT = res))
-                .then((res) => {
-                    if (res) {
-                        Connection.send({
-                            type: "message",
-                            data: {
-                                user_id: USER_ID,
-                                chat_id: CURRENT_CHAT.id,
-                                content: msg,
-                            },
-                        });
-                    }
-                });
-        } else {
-            if (!CURRENT_CHAT) {
-                alert("Select chat first!");
-                return;
-            }
-            Connection.send({
-                type: "message",
-                data: {
-                    user_id: USER_ID,
-                    chat_id: CURRENT_CHAT.id,
-                    content: $("#msg").val(),
-                },
-            });
-        }
-        $("#msg").val("");
+    $("#file").on("change", function () {
+        Render.selectedFiles(this.files);
     });
+    $("#message-send-form").on("submit", function (e) {
+        e.preventDefault();
+        try {
+            const msg = $("#msg").val();
+            const files = document.getElementById("file").files;
+            if (CURRENT_CHAT instanceof NewChat) {
+                Requests.createDirectChat(CURRENT_CHAT.user)
+                    .then((res) => res && (CURRENT_CHAT = res))
+                    .then((res) => {
+                        if (res) {
+                            sendMessage(msg, files);
+                        }
+                    });
+            } else {
+                if (!CURRENT_CHAT) {
+                    alert("Select chat first!");
+                    return;
+                }
+                sendMessage(msg, files);
+            }
+            Render.selectedFiles();
+            this.reset(); // reset form inputs
+        } catch (e) {
+            alert("error!");
+            console.log("error when sending message", e);
+        }
+    });
+
+    Render.selectedFiles(document.getElementById("file").files);
 });
